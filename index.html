@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Report</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        h1 {
+            color: #0056b3;
+            margin-bottom: 20px;
+        }
+        #total-sales {
+            font-size: 2em;
+            font-weight: bold;
+            color: #28a745;
+            margin-top: 15px;
+            padding: 10px;
+            border: 1px solid #28a745;
+            border-radius: 5px;
+            display: inline-block;
+            min-width: 150px;
+            background-color: #e6ffed;
+        }
+        #status-message {
+            margin-top: 20px;
+            font-style: italic;
+            color: #555;
+        }
+        .error-message {
+            color: #dc3545;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Sales Data Summary</h1>
+        <p>The total sales from the attached data file:</p>
+        <div id="total-sales">Loading...</div>
+        <div id="status-message" aria-live="polite"></div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const totalSalesElement = document.querySelector('#total-sales');
+            const statusMessageElement = document.querySelector('#status-message');
+
+            // Initial state for user feedback
+            if (totalSalesElement) {
+                totalSalesElement.textContent = 'Calculating...';
+            }
+            if (statusMessageElement) {
+                statusMessageElement.textContent = 'Loading sales data...';
+            }
+
+            const dataUri = 'data:text/csv;base64,cHJvZHVjdCxzYWxlcwphcHBsZXMsMTAKb3JhbmdlcywyMAo=';
+
+            try {
+                // Rule 4: Do not use fetch() for data: URIs. Decode manually.
+                if (!dataUri.startsWith('data:text/csv;base64,')) {
+                    throw new Error('Invalid data URI format for CSV.');
+                }
+
+                const base64Content = dataUri.split(',')[1];
+                if (!base64Content) {
+                    throw new Error('No base64 content found in data URI.');
+                }
+
+                // Decode the base64 string to get the raw CSV content
+                const decodedCsv = atob(base64Content);
+
+                // Split into lines and filter out any empty lines
+                const lines = decodedCsv.split('\n').filter(line => line.trim() !== '');
+
+                if (lines.length < 2) { // Expect at least a header and one data row
+                    throw new Error('CSV data is empty or malformed (expected header + data).');
+                }
+
+                // Skip the header row and process data rows
+                const dataRows = lines.slice(1);
+                let totalSales = 0;
+
+                dataRows.forEach(row => {
+                    const columns = row.split(',');
+                    // Ensure there's a sales column (at least 2 columns: product, sales)
+                    if (columns.length > 1) {
+                        const sales = parseFloat(columns[1]); // Parse the sales value
+                        if (!isNaN(sales)) {
+                            totalSales += sales; // Add to total if it's a valid number
+                        } else {
+                            // Log a warning for non-numeric sales values without stopping execution
+                            console.warn(`Skipping non-numeric sales value in row: "${row}" (value: "${columns[1]}")`);
+                        }
+                    }
+                });
+
+                // Update the DOM with the result, ensuring element exists
+                if (totalSalesElement) {
+                    totalSalesElement.textContent = `Total Sales: ${totalSales}`;
+                }
+                if (statusMessageElement) {
+                    statusMessageElement.textContent = 'Sales data loaded and calculated successfully.';
+                    statusMessageElement.classList.remove('error-message');
+                }
+
+            } catch (error) {
+                // Rule 2: Display user-friendly error message on the page for API/data errors
+                console.error('Error processing sales data:', error);
+                if (totalSalesElement) {
+                    totalSalesElement.textContent = 'Error!';
+                    totalSalesElement.style.color = '#dc3545'; // Indicate error visually
+                }
+                if (statusMessageElement) {
+                    statusMessageElement.textContent = `Error: Failed to calculate sales. ${error.message}`;
+                    statusMessageElement.classList.add('error-message');
+                }
+            }
+        });
+    </script>
+</body>
+</html>

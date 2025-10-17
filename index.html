@@ -1,9 +1,12 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sales Report</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <style>
         body {
             font-family: sans-serif;
@@ -18,6 +21,9 @@
             background-color: #fff;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            /* text-align: center; Removed for overall container to allow left-aligned table */
+        }
+        h1, .container > p, #total-sales { /* Specific centering for these elements */
             text-align: center;
         }
         h1 {
@@ -40,10 +46,15 @@
             margin-top: 20px;
             font-style: italic;
             color: #555;
+            text-align: center; /* Centering for status message */
         }
         .error-message {
             color: #dc3545;
             font-weight: bold;
+        }
+        .table-container { /* Added for better table layout within container */
+            margin-top: 30px;
+            text-align: left; /* Align table content left */
         }
     </style>
 </head>
@@ -53,12 +64,34 @@
         <p>The total sales from the attached data file:</p>
         <div id="total-sales">Loading...</div>
         <div id="status-message" aria-live="polite"></div>
+
+        <!-- New section for product sales table -->
+        <div class="table-container">
+            <h2 class="text-center mt-4 mb-3">Product Sales Breakdown</h2>
+            <div id="product-sales-loading" class="text-muted text-center" aria-live="polite">Loading product sales data...</div>
+            <table id="product-sales" class="table table-striped table-bordered d-none" aria-label="Product Sales Data">
+                <thead>
+                    <tr>
+                        <th scope="col">Product</th>
+                        <th scope="col">Sales</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Product sales rows will be inserted here -->
+                </tbody>
+            </table>
+        </div>
     </div>
 
+    <!-- Bootstrap JS Bundle (includes Popper) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const totalSalesElement = document.querySelector('#total-sales');
             const statusMessageElement = document.querySelector('#status-message');
+            const productSalesTable = document.querySelector('#product-sales');
+            const productSalesTbody = productSalesTable ? productSalesTable.querySelector('tbody') : null;
+            const productSalesLoading = document.querySelector('#product-sales-loading');
 
             // Initial state for user feedback
             if (totalSalesElement) {
@@ -67,6 +100,16 @@
             if (statusMessageElement) {
                 statusMessageElement.textContent = 'Loading sales data...';
             }
+            if (productSalesLoading) {
+                productSalesLoading.textContent = 'Loading product sales data...';
+                // Initially ensure the loading message is visible if present
+                productSalesLoading.classList.remove('d-none');
+            }
+            if (productSalesTable) {
+                // Initially hide the table
+                productSalesTable.classList.add('d-none');
+            }
+
 
             const dataUri = 'data:text/csv;base64,cHJvZHVjdCxzYWxlcwphcHBsZXMsMTAKb3JhbmdlcywyMAo=';
 
@@ -94,14 +137,17 @@
                 // Skip the header row and process data rows
                 const dataRows = lines.slice(1);
                 let totalSales = 0;
+                const productSalesData = []; // To store product-wise sales
 
                 dataRows.forEach(row => {
                     const columns = row.split(',');
                     // Ensure there's a sales column (at least 2 columns: product, sales)
                     if (columns.length > 1) {
+                        const product = columns[0].trim();
                         const sales = parseFloat(columns[1]); // Parse the sales value
                         if (!isNaN(sales)) {
                             totalSales += sales; // Add to total if it's a valid number
+                            productSalesData.push({ product, sales }); // Store for table
                         } else {
                             // Log a warning for non-numeric sales values without stopping execution
                             console.warn(`Skipping non-numeric sales value in row: "${row}" (value: "${columns[1]}")`);
@@ -113,6 +159,42 @@
                 if (totalSalesElement) {
                     totalSalesElement.textContent = `Total Sales: ${totalSales}`;
                 }
+
+                // Populate the product sales table
+                if (productSalesTbody) { // Rule 3: DOM Safety
+                    productSalesTbody.innerHTML = ''; // Clear existing content
+                    if (productSalesData.length > 0) {
+                        productSalesData.forEach(item => {
+                            const tr = document.createElement('tr');
+                            const tdProduct = document.createElement('td');
+                            tdProduct.textContent = item.product;
+                            const tdSales = document.createElement('td');
+                            tdSales.textContent = item.sales;
+
+                            tr.appendChild(tdProduct);
+                            tr.appendChild(tdSales);
+                            productSalesTbody.appendChild(tr);
+                        });
+                        // Show the table and hide loading message
+                        if (productSalesTable) productSalesTable.classList.remove('d-none');
+                        if (productSalesLoading) productSalesLoading.classList.add('d-none');
+                    } else {
+                        // Display message if no product sales data
+                        const tr = document.createElement('tr');
+                        const td = document.createElement('td');
+                        td.colSpan = 2;
+                        td.textContent = 'No product sales data available.';
+                        tr.appendChild(td);
+                        productSalesTbody.appendChild(tr);
+                        if (productSalesTable) productSalesTable.classList.remove('d-none');
+                        if (productSalesLoading) productSalesLoading.classList.add('d-none');
+                    }
+                } else if (productSalesLoading) {
+                    productSalesLoading.textContent = 'Error: Product sales table element not found.';
+                    productSalesLoading.classList.add('error-message');
+                }
+
+
                 if (statusMessageElement) {
                     statusMessageElement.textContent = 'Sales data loaded and calculated successfully.';
                     statusMessageElement.classList.remove('error-message');
@@ -128,6 +210,22 @@
                 if (statusMessageElement) {
                     statusMessageElement.textContent = `Error: Failed to calculate sales. ${error.message}`;
                     statusMessageElement.classList.add('error-message');
+                }
+                if (productSalesTbody) {
+                    productSalesTbody.innerHTML = ''; // Clear any loading message
+                    const tr = document.createElement('tr');
+                    const td = document.createElement('td');
+                    td.colSpan = 2;
+                    td.classList.add('error-message');
+                    td.textContent = `Error loading product sales: ${error.message}`;
+                    tr.appendChild(td);
+                    productSalesTbody.appendChild(tr);
+                    // Show table with error, hide loading message
+                    if (productSalesTable) productSalesTable.classList.remove('d-none');
+                    if (productSalesLoading) productSalesLoading.classList.add('d-none');
+                } else if (productSalesLoading) {
+                    productSalesLoading.textContent = `Error: Product sales table failed to render. ${error.message}`;
+                    productSalesLoading.classList.add('error-message');
                 }
             }
         });
